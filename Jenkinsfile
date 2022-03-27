@@ -1,10 +1,36 @@
 pipeline {
     agent any
+    environment {
+        AZURE_STORAGE_ACCOUNT='ikstorageexample'
+    }
     stages {
+        stage("Checkout Repo") {
+            steps {
+                cleanWs()
+                checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/diogenes0803/jenkins-example']]])
+            }
+        }
         stage("Build") {
             steps {
-                echo "This is the first step in the Build Stage"
+                nodejs('node17') {
+                    sh 'npm install'
+                    sh 'npm run build'
+                    sh 'tar -zcf ${JOB_NAME}${BUILD_NUMBER}.tar.gz ./build/*'
+                }
             }
+            post {
+                success {
+                    sh '''
+                      # Login to Azure with ServicePrincipal
+                      az login --identity
+                      # Execute upload to Azure
+                      az storage container create --account-name $AZURE_STORAGE_ACCOUNT --name $JOB_NAME --auth-mode login
+                      az storage blob upload --auth-mode login -c ${JOB_NAME} -f ./${JOB_NAME}${BUILD_NUMBER}.tar.gz -n ${JOB_NAME}${BUILD_NUMBER}.tar.gz --account-name $AZURE_STORAGE_ACCOUNT
+                      # Logout from Azure
+                      az logout
+                    '''
+                }
+          }
         }
         stage("Deploy") {
             steps {
