@@ -13,7 +13,8 @@
         az logout
 
     - name: "Wait until the download finish"
-      wait_for: /var/www/build.tar.gz
+      wait_for: 
+        path: /var/www/build.tar.gz
 
     - name: "unarchive package"
       unarchive:
